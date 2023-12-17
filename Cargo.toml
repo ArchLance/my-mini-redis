@@ -2,7 +2,20 @@
 name = "my-mini-redis"
 version = "0.1.0"
 edition = "2021"
-
+description = """
+一个未完全执行的Rust客户端和服务器。用做一个使用
+了一个符合语言风格的Tokio应用程序
+"""
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "my_redis"
+path = "src/main.rs"
+
+[lib]
+name = "mylib" 
+
 [dependencies]
+atoi = "2.0.0"
+bytes = "1"
+tokio = { version = "1", features = ["full"] }
