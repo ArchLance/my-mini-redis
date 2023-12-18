@@ -4,7 +4,7 @@
 
 use bytes::{Buf, Bytes};
 use std::convert::TryInto;
-use std::fmt;
+use std::fmt::{self, write};
 use std::io::Cursor;
 use std::num::TryFromIntError;
 use std::string::FromUtf8Error;
@@ -60,10 +60,144 @@ impl Frame {
 
     /// Checks if an entire message can be decoded from `src`
     pub fn check(src: &mut Cursor<&[u8]>) -> Result<(), Error> {
-        Ok(())
+        match get_u8(src)? {
+            // Simple strings: +OK\r\n 
+            b'+' => {
+                get_line(src)?;
+                Ok(())
+            },
+            // Simple errors: -Error message\r\n
+            b'-' => {
+                get_line(src)?;
+                Ok(())
+            },
+            // Integers: :[<+|->]<value>\r\n
+            b':' => {
+                let _ = get_decimal(src)?;
+                Ok(())
+            }
+            // Bulk strings: $<length>\r\n<data>\r\n
+            b'$' => {
+                if b'-' == peek_u8(src)? {
+                    // 跳过'-1\r\n'
+                    skip(src, 4)
+                } else {
+                    // 这里需要实现 From<TryFromIntError> for Error
+                    // 读取bulk string长度
+                    let len: usize= get_decimal(src)?.try_into()?;
+
+                    // 跳过字节数+2(\r\n)
+                    skip(src, len+2)
+                }
+            }
+            // Arrays: *<number-of-elements>\r\n<element-1>...<element-n>
+            b'*' => {
+                let len = get_decimal(src)?;
+
+                for _ in 0..len {
+                    Frame::check(src)?;
+                }
+
+                Ok(())
+            }
+            // 其他任意字符
+            actual => Err(format!("protocol error: invalid frame type byte `{}`", actual).into())
+        }
+    }
+
+    pub fn parse(src: &mut Cursor<&[u8]>) -> Result<Frame, Error> {
+        match get_u8(src)? {
+            b'+' => {
+                let line = get_line(src)?.to_vec();
+                // 需要实现 impl From<FromUtf8Error> for Error
+                let string = String::from_utf8(line)?;
+
+                Ok(Frame::Simple(string))
+            },
+            b'-' => {
+                let line = get_line(src)?.to_vec();
+
+                let string = String::from_utf8(line)?;
+
+                Ok(Frame::Error(string))
+            },
+            b':' => {
+                let len = get_decimal(src)?;
+                Ok(Frame::Integer(len))
+            },
+            b'$' => {
+                if b'-' == peek_u8(src)? {
+                    let line = get_line(src)?;
+
+                    if line != b"-1" {
+                        return Err("protocol error; invalid frame format".into());
+                    }
+
+                    Ok(Frame::Null)
+                } else {
+                    let len: usize = get_decimal(src)?.try_into()?;
+                    let n = len + 2;
+
+                    if src.remaining() < n {
+                        return Err(Error::Incomplete);
+                    }
+
+                    let data = Bytes::copy_from_slice(&src.chunk()[..len]);
+
+                    skip(src, n)?;
+
+                    Ok(Frame::Bulk(data))
+                }
+            },
+            b'*' => {
+                let len: usize = get_decimal(src)?.try_into()?;
+                let mut out = Vec::with_capacity(len);
+
+                for _ in 0..len {
+                    out.push(Frame::parse(src)?);
+                }
+
+                Ok(Frame::Array(out))
+            },
+            _ => unimplemented!()
+        }
+    } 
+
+    /// 将frame转换为一个"unexpected frame" error
+    pub(crate) fn to_error(&self) -> crate::Error {
+        // 需要实现fmt::Display for Frame
+        format!("unexpected frame: {}", self).into()
     }
 }
 
+// todo impl PartialEq<&str> for Frame
+
+impl fmt::Display for Frame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        
+        match self {
+            Frame::Simple(response) => response.fmt(f),
+            Frame::Error(msg) => write!(f, "error: {}", msg),
+            Frame::Integer(num) => num.fmt(f),
+            Frame::Bulk(msg) => match std::str::from_utf8(msg){
+                Ok(string) => string.fmt(f),
+                Err(_) => write!(f, "{:?}", msg)
+            },
+            Frame::Null => "(nil)".fmt(f),
+            Frame::Array(parts) => {
+                for (i,part) in parts.iter().enumerate() {
+                    if i > 0 {
+                        write!(f," ")?;
+                    }
+
+                    part.fmt(f)?;
+                }
+
+                Ok(())
+            }
+        }
+    }
+}
 
 /// 取Cursor当前指向的第一个字节,但Cursor不向前移动
 fn peek_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
