@@ -6,15 +6,15 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::TcpStream;
 
 /// Send and receive `Frame` value from a remote peer.
-/// 
-/// When implementing networking protocol, message on that protocol is 
+///
+/// When implementing networking protocol, message on that protocol is
 /// often comoposed of several smaller messages known as frames. The purpose of
 /// `Connection` is to read and write frames on the underlying `TcpStream`.
-/// 
+///
 /// To read frames, the `Connection` use an internal buffer, which is filled up
 /// until there are enough bytes to create a full frame. Once this happens,
 /// the `Connection` creates the frame and returns it to the caller.
-/// 
+///
 /// When sending frames, the frame is first encoded into the write buffer.
 /// The contents of the write buffer are then written to the socket.
 
@@ -25,7 +25,7 @@ pub struct Connection {
     stream: BufWriter<TcpStream>,
 
     // 用来读frame的buffer
-    buffer: BytesMut
+    buffer: BytesMut,
 }
 
 impl Connection {
@@ -42,22 +42,22 @@ impl Connection {
     }
 
     /// Read a single `Frame` value from the underlying stream.
-    /// 
+    ///
     /// The function waits until it has retrieved enough data to parse a frame.
     /// Any data remaining in read buffer after the frame has been parsed is
     /// kept there for the next call to `read_frame`.
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// On success, the received frame is returned. If the `TcpStream`
     /// is closed in a way that doesn't break a frame in half, it returns
     /// `None`. Otherwise, an error is returned
     pub async fn read_frame(&mut self) -> crate::Result<Option<Frame>> {
-        loop{
+        loop {
             // 尝试从buffer中解析出一个frame。如果buffer中有足够的数据，返回一个frame
             if let Some(frame) = self.parse_frame()? {
                 return Ok(Some(frame));
-            } 
+            }
 
             // 如果没有读到足够的数据，尝试从socket中读取更多数据
             // 如果成功，会返回读取的字节数量，0代表TcpStream的结尾
@@ -98,7 +98,7 @@ impl Connection {
                 // 如果编码frame表示是非法的，错误被返回。
                 // 这种情况应该终止当前连接，而不是影响到其他连接
                 let frame = Frame::parse(&mut cursor)?;
-                
+
                 // 摒弃已经解析过的frame data
                 // 这个操作经常通过移动内部cursor实现，但有些时候
                 // 可能会通过重新分配内存和copy数据来实现
@@ -106,7 +106,7 @@ impl Connection {
 
                 // 返回解析的frame
                 Ok(Some(frame))
-            },
+            }
             // 如果没有足够的数据来解析成一个frame。我们必须等待更多的数据
             // 从socket中被接收。在这个match结束后，从socket中读数据将会被执行
             // 所以在这里，我们不想返回一个Err，因为这个"error"是一个运行时
@@ -114,7 +114,7 @@ impl Connection {
             Err(Incomplete) => Ok(None),
             // 这个error表示解析frame时出现了错误，这个表示当前连接处在非法状态
             // 这里要返回`Err`，使得连接停止
-            Err(e) => Err(e.into())
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -125,21 +125,21 @@ impl Connection {
     /// a `TcpStream` is **not** advised, as this will result in a large number of
     /// syscalls. However, it is fine to call these function on a *buffered*
     /// write stream. The data will be written to the buffer. Once the buffer is
-    /// full, it is flushed to the underlying socket. 
+    /// full, it is flushed to the underlying socket.
     pub async fn write_frame(&mut self, frame: &Frame) -> io::Result<()> {
         // Array通过编码其他entry来编码。 其他frame type被认为是字面量。
         // 现在，mini redis还不能编码recursive frame structures。
-        match frame{
+        match frame {
             Frame::Array(vec) => {
                 self.stream.write_u8(b'*').await?;
 
                 self.write_decimal(vec.len() as u64).await?;
 
-                for entry in &*vec{
+                for entry in &*vec {
                     self.write_value(entry).await?;
                 }
             }
-            _ => self.write_value(frame).await?
+            _ => self.write_value(frame).await?,
         }
 
         // 确保encode frame 被写入socket。上面的调用是将数据写入buffered stream。
@@ -154,19 +154,19 @@ impl Connection {
                 self.stream.write_u8(b'+').await?;
                 self.stream.write_all(val.as_bytes()).await?;
                 self.stream.write_all(b"\r\n").await?;
-            },
+            }
             Frame::Error(val) => {
                 self.stream.write_u8(b'-').await?;
                 self.stream.write_all(val.as_bytes()).await?;
                 self.stream.write_all(b"\r\n").await?;
-            },
+            }
             Frame::Integer(val) => {
                 self.stream.write_u8(b':').await?;
                 self.write_decimal(*val).await?;
-            },
+            }
             Frame::Null => {
                 self.stream.write_all(b"$-1\r\n").await?;
-            },
+            }
             Frame::Bulk(val) => {
                 let len = val.len();
 
@@ -174,7 +174,7 @@ impl Connection {
                 self.write_decimal(len as u64).await?;
                 self.stream.write_all(val).await?;
                 self.stream.write_all(b"\r\n").await?;
-            },
+            }
             // 不能使用递归策略从一个值内部对Array进行编码。一般来说异步函数
             // 不支持递归。Mini-redis还不需要对nested(嵌套)arrays进行编码
             // 所以暂时跳过

@@ -1,6 +1,5 @@
-//! Provides a type representing a Redis protocol frame as well as utilities for 
+//! Provides a type representing a Redis protocol frame as well as utilities for
 //! parsing frames from a byte array
-
 
 use bytes::{Buf, Bytes};
 use std::convert::TryInto;
@@ -26,7 +25,7 @@ pub enum Error {
     Incomplete,
 
     /// Invalid message encoding
-    Other(crate::Error)
+    Other(crate::Error),
 }
 
 impl Frame {
@@ -36,11 +35,11 @@ impl Frame {
         Frame::Array(vec![])
     }
     /// Push a "bulk" frame into the array. `self` must be an Array frame.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// panics if `self` is not an array
-    pub(crate) fn push_bulk(&mut self, bytes: Bytes){
+    pub(crate) fn push_bulk(&mut self, bytes: Bytes) {
         match self {
             Frame::Array(vec) => {
                 vec.push(Frame::Bulk(bytes));
@@ -61,16 +60,16 @@ impl Frame {
     /// Checks if an entire message can be decoded from `src`
     pub fn check(src: &mut Cursor<&[u8]>) -> Result<(), Error> {
         match get_u8(src)? {
-            // Simple strings: +OK\r\n 
+            // Simple strings: +OK\r\n
             b'+' => {
                 get_line(src)?;
                 Ok(())
-            },
+            }
             // Simple errors: -Error message\r\n
             b'-' => {
                 get_line(src)?;
                 Ok(())
-            },
+            }
             // Integers: :[<+|->]<value>\r\n
             b':' => {
                 let _ = get_decimal(src)?;
@@ -84,10 +83,10 @@ impl Frame {
                 } else {
                     // 这里需要实现 From<TryFromIntError> for Error
                     // 读取bulk string长度
-                    let len: usize= get_decimal(src)?.try_into()?;
+                    let len: usize = get_decimal(src)?.try_into()?;
 
                     // 跳过字节数+2(\r\n)
-                    skip(src, len+2)
+                    skip(src, len + 2)
                 }
             }
             // Arrays: *<number-of-elements>\r\n<element-1>...<element-n>
@@ -101,7 +100,7 @@ impl Frame {
                 Ok(())
             }
             // 其他任意字符
-            actual => Err(format!("protocol error: invalid frame type byte `{}`", actual).into())
+            actual => Err(format!("protocol error: invalid frame type byte `{}`", actual).into()),
         }
     }
 
@@ -113,18 +112,18 @@ impl Frame {
                 let string = String::from_utf8(line)?;
 
                 Ok(Frame::Simple(string))
-            },
+            }
             b'-' => {
                 let line = get_line(src)?.to_vec();
 
                 let string = String::from_utf8(line)?;
 
                 Ok(Frame::Error(string))
-            },
+            }
             b':' => {
                 let len = get_decimal(src)?;
                 Ok(Frame::Integer(len))
-            },
+            }
             b'$' => {
                 if b'-' == peek_u8(src)? {
                     let line = get_line(src)?;
@@ -148,7 +147,7 @@ impl Frame {
 
                     Ok(Frame::Bulk(data))
                 }
-            },
+            }
             b'*' => {
                 let len: usize = get_decimal(src)?.try_into()?;
                 let mut out = Vec::with_capacity(len);
@@ -158,10 +157,10 @@ impl Frame {
                 }
 
                 Ok(Frame::Array(out))
-            },
-            _ => unimplemented!()
+            }
+            _ => unimplemented!(),
         }
-    } 
+    }
 
     /// 将frame转换为一个"unexpected frame" error
     pub(crate) fn to_error(&self) -> crate::Error {
@@ -183,20 +182,19 @@ impl PartialEq<&str> for Frame {
 
 impl fmt::Display for Frame {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        
         match self {
             Frame::Simple(response) => response.fmt(f),
             Frame::Error(msg) => write!(f, "error: {}", msg),
             Frame::Integer(num) => num.fmt(f),
-            Frame::Bulk(msg) => match std::str::from_utf8(msg){
+            Frame::Bulk(msg) => match std::str::from_utf8(msg) {
                 Ok(string) => string.fmt(f),
-                Err(_) => write!(f, "{:?}", msg)
+                Err(_) => write!(f, "{:?}", msg),
             },
             Frame::Null => "(nil)".fmt(f),
             Frame::Array(parts) => {
-                for (i,part) in parts.iter().enumerate() {
+                for (i, part) in parts.iter().enumerate() {
                     if i > 0 {
-                        write!(f," ")?;
+                        write!(f, " ")?;
                     }
 
                     part.fmt(f)?;
@@ -215,9 +213,9 @@ fn peek_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
     if !src.has_remaining() {
         return Err(Error::Incomplete);
     }
-    // fn remaining(&self) -> &[u8] 
-    // 返回一个从当前位置开始，到buffer结束的字节数 
-    
+    // fn remaining(&self) -> &[u8]
+    // 返回一个从当前位置开始，到buffer结束的字节数
+
     // chunk()返回一个从当前位置的切片，长度在0到 `Buf::remaining()` 之间
     // 注意这个函数可以返回一个长度比 `Buf::remaining()` 更短的切片
     // (这允许不连续的内部表示)
@@ -233,8 +231,8 @@ fn get_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
     Ok(src.get_u8())
 }
 
-/// 使Cursor向后移动n个字节 
-fn skip(src: &mut Cursor<&[u8]>,n: usize) -> Result<(), Error> {
+/// 使Cursor向后移动n个字节
+fn skip(src: &mut Cursor<&[u8]>, n: usize) -> Result<(), Error> {
     if src.remaining() < n {
         return Err(Error::Incomplete);
     }
@@ -254,10 +252,10 @@ fn get_decimal(src: &mut Cursor<&[u8]>) -> Result<u64, Error> {
 fn get_line<'a>(src: &mut Cursor<&'a [u8]>) -> Result<&'a [u8], Error> {
     let start = src.position() as usize;
     // get_ref()获得当前Cursor的底层数据结构的引用
-    let end = src.get_ref().len()-1;
+    let end = src.get_ref().len() - 1;
     for i in start..end {
-        if src.get_ref()[i] == b'\r' && src.get_ref()[i+1] == b'\n' {
-            src.set_position((i+2) as u64);
+        if src.get_ref()[i] == b'\r' && src.get_ref()[i + 1] == b'\n' {
+            src.set_position((i + 2) as u64);
             // []将get_ref()获得的引用deref了，所以变成了[u8]，需要加&
             return Ok(&src.get_ref()[start..i]);
         }
@@ -296,7 +294,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::Incomplete => "stream ended early".fmt(f),
-            Error::Other(err) => err.fmt(f)
+            Error::Other(err) => err.fmt(f),
         }
     }
 }
