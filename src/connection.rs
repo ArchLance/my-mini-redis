@@ -29,7 +29,7 @@ pub struct Connection {
 }
 
 impl Connection {
-    /// Create a new `Connectioin`, backed by `socket`, Read an write buffers
+    /// Create a new `Connection`, backed by `socket`, Read an write buffers
     /// are initialized
     pub fn new(socket: TcpStream) -> Connection {
         Connection {

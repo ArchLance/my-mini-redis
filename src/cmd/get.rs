@@ -44,7 +44,7 @@ impl Get{
     /// ```text
     /// GET key
     /// ```
-    pub fn parse_frame(parse: &mut Parse) -> crate::Result<Get> {
+    pub fn parse_frames(parse: &mut Parse) -> crate::Result<Get> {
         let key = parse.next_string()?;
         Ok(Get{ key })
     }

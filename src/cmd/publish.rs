@@ -1,4 +1,4 @@
-use crate::{Connectioin, Db, Frame, Parse};
+use crate::{Connection, Db, Frame, Parse};
 
 use bytes::Bytes;
 
@@ -57,7 +57,7 @@ impl Publish {
     ///
     /// The response is written to `dst`. This is called by the server in order
     /// to execute a received command.
-    pub(crate) async fn apply(self, db: &Db, dst: &mut Connectioin) -> crate::Result<()> {
+    pub(crate) async fn apply(self, db: &Db, dst: &mut Connection) -> crate::Result<()> {
         let num_subscribers = db.publish(&self.channel, self.message);
 
         let response = Frame::Integer(num_subscribers as u64);

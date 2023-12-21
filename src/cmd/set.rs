@@ -1,4 +1,4 @@
-use crate::{Parse, ParseError, Connectioin, Db, Frame};
+use crate::{Parse, ParseError, Connection, Db, Frame};
 
 use bytes::Bytes;
 use std::time::Duration;
@@ -69,7 +69,7 @@ impl Set {
     /// ```text
     /// SET key value [EX seconds|PX milliseconds]
     /// ```
-    pub(crate) fn parse_frame(parse: &mut Parse) -> crate::Result<Set> {
+    pub(crate) fn parse_frames(parse: &mut Parse) -> crate::Result<Set> {
         use ParseError::EndOfStream;
 
         let key = parse.next_string()?;
@@ -101,7 +101,7 @@ impl Set {
     /// The response is written to `dst`. This is called by the server in order
     /// to execute a received command.
     #[instrument(skip(self, db, dst))]
-    pub(crate) async fn apply(self, db: &Db, dst: &mut Connectioin) -> crate::Result<()> {
+    pub(crate) async fn apply(self, db: &Db, dst: &mut Connection) -> crate::Result<()> {
         db.set(self.key, self.value, self.expire);
 
         let response = Frame::Simple("OK".to_string());
