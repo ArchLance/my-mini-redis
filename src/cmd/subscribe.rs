@@ -283,7 +283,7 @@ impl Unsubscribe {
         let mut channels = vec![];
 
         loop {
-            match parse.next_string()? {
+            match parse.next_string() {
                 Ok(s) => channels.push(s),
 
                 Err(EndOfStream) => break,

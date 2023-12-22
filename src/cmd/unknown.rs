@@ -16,7 +16,7 @@ impl Unknown {
     }
 
     pub(crate) fn get_name(&self) -> &str {
-        self.command_name
+        &self.command_name
     }
 
     #[instrument(skip(self, dst))]

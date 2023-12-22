@@ -74,7 +74,7 @@ impl Set {
 
         let key = parse.next_string()?;
 
-        let value = parse.next_string()?;
+        let value = parse.next_bytes()?;
 
         let mut expire = None;
 
@@ -89,7 +89,7 @@ impl Set {
             },
             Ok(_) => return Err("currently `SET` only supports the expiration option".into()),
             Err(EndOfStream) => {},
-            Err(err) => return Err(ee.into()),
+            Err(err) => return Err(err.into()),
         }
 
         Ok(Set { key, value, expire})

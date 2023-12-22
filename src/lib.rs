@@ -1,3 +1,6 @@
+pub mod cmd;
+pub use cmd::Command;
+
 pub mod frame;
 pub use frame::Frame;
 
@@ -12,6 +15,8 @@ use parse::{Parse, ParseError};
 
 pub mod db;
 use db::{Db, DbDropGuard};
+
+pub mod server;
 /// Default port that a redis server listens on
 ///
 /// Used if no port is specified

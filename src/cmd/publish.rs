@@ -1,5 +1,4 @@
 use crate::{Connection, Db, Frame, Parse};
-
 use bytes::Bytes;
 
 /// Posts a message to the given channel.
@@ -46,7 +45,7 @@ impl Publish {
     /// ```text
     /// PUBLISH channel message
     /// ``` 
-    pub(crate) fn parse_frames(parse: &mut Parse) -> crate::Result<Ping> {
+    pub(crate) fn parse_frames(parse: &mut Parse) -> crate::Result<Publish> {
         
         let channel = parse.next_string()?;
         let message = parse.next_bytes()?;

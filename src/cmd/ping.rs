@@ -40,7 +40,7 @@ impl Ping {
     /// PING [message]
     /// ```
     pub(crate) fn parse_frames(parse: &mut Parse) -> crate::Result<Ping> {
-        match parse.next_bytes()? {
+        match parse.next_bytes() {
             Ok(msg) => Ok(Ping::new(Some(msg))),
             Err(ParseError::EndOfStream) => Ok(Ping::default()),
             Err(e) => Err(e.into()),
