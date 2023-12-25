@@ -195,4 +195,87 @@ impl BlockingClient {
         self.rt
             .block_on(self.inner.set_expires(key, value, expirationis))
     }
+    /// Posts `message` to the given `channel`.
+    /// 
+    /// Returns the number of subscribers currently listening on the channel.
+    /// There is on guarantee that these subscribers receive the message as they
+    /// may disconnect at any time.
+    /// 
+    /// # Example
+    /// 
+    /// Demonstrates basic usage.
+    /// 
+    /// ```no_run
+    /// use my_mini_redis::clients::BlockingClient;
+    /// 
+    /// fn main() {
+    ///     let mut client = BlockingClient::connect("localhost:6379").unwrap();
+    /// 
+    ///     let val = client.publish("foo", "bar".into()).unwrap();
+    ///     println!("Got = {:?}", val);   
+    /// }
+    /// ```
+    pub fn publish(&mut self, channel: &str, message: Bytes) -> crate::Result<u64> {
+        self.rt.block_on(self.inner.publish(channel, message))
+    }
+
+    /// Subscribes the client to the specified channels.
+    /// 
+    /// Once a client issues a subscribe command, it may no longer issue any
+    /// no-pub/sub commands. The function consumes `self` and returns a 
+    /// `BlockingSubscriber`.
+    /// 
+    /// The `BlockingSubscriber` value is used to receive messages as well as
+    /// manage the list of channels the client is subscribed to.
+    pub fn subscribe(self, channels: Vec<String>) -> crate::Result<BlockingSubscriber> {
+        let subscriber = self.rt.block_on(self.inner.subscribe(channels))?;
+        Ok(BlockingSubscriber {
+            inner: subscriber,
+            rt: self.rt,
+        })
+    }
+}
+
+impl BlockingSubscriber {
+    /// Returns the set of channels currently subscribed to.
+    pub fn get_subscribed(&self) -> &[String] {
+        self.inner.get_subscribed()
+    }
+
+    /// Receive the next message published on a subscribed channel, waiting if 
+    /// necessary.
+    /// 
+    /// `None` indicates the subscription has been terminated.
+    pub fn next_message(&mut self) -> crate::Result<Option<Message>> {
+        self.rt.block_on(self.inner.next_message())
+    }
+
+    /// Convert the subscriber into an `Iterator` yielding new messages published
+    /// on subscribed channels.
+    pub fn into_iter(self) -> impl Iterator<Item = crate::Result<Message>> {
+        SubscriberIterator {
+            inner: self.inner,
+            rt: self.rt,
+        }
+    }
+
+    /// Subscribe to a list of new channels
+    pub fn subscribe(&mut self, channels: &[String]) -> crate::Result<()> {
+        self.rt.block_on(self.inner.subscibe(channels))
+    }
+
+    /// Unsubscribe to a list of new channels
+    pub fn unsubscribe(&mut self, channels: &[String]) -> crate::Result<()> {
+        self.rt.block_on(self.inner.unsubscribe(channels))
+    }
+}
+
+impl Iterator for SubscriberIterator {
+    type Item = crate::Result<Message>;
+    // transpose() 是Rust标准库中的一个方法，通常用于处理 Option<Result<T, E>> 
+    //或 Result<Option<T>, E> 类型的值。在这个上下文中，它可能被用来转换 
+    //Option<Future<...>> 成 Future<Option<...>>，或者执行类似的转换。
+    fn next(&mut self) -> Option<crate::Result<Message>> {
+        self.rt.block_on(self.inner.next_message()).transpose()
+    }
 }
