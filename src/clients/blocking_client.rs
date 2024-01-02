@@ -48,7 +48,7 @@ pub struct BlockingSubscriber {
 /// The iterator returned by `Subscriber::into_iter`.
 struct SubscriberIterator {
     /// The asynchronous `Subscriber`,
-    inner: crate::client::Subscriber,
+    inner: crate::clients::Subscriber,
 
     /// A `current_thread` runtime for executing operations on the asynchronous
     /// `Subscriber` in a blocking manner.
@@ -77,7 +77,7 @@ impl BlockingClient {
     /// # drop(client);  
     /// }
     /// ```
-    pub fn connect<T: ToSocketAddr>(addr: T) -> crate::Result<BlockingClient> {
+    pub fn connect<T: ToSocketAddrs>(addr: T) -> crate::Result<BlockingClient> {
         // 这里，tokio::runtime::Builder::new_current_thread() 创建了一个 Builder 实例，
         //用于构造一个新的运行时。new_current_thread 表示这个运行时是基于当前线程的。
         //这意味着所有由这个运行时驱动的异步任务都将在创建它的同一线程上执行。

@@ -29,7 +29,7 @@ pub struct Client {
     /// passed to `Connection::new`, which initializes the associated buffers
     /// `Connection` allows the handler to operate at the "frame" level and keep
     /// the byte level protocol parsing details encapsulated in `Connection`.
-    connect: Connection,
+    connection: Connection,
 }
 
 /// A client that has entered pub/sub mode
@@ -37,13 +37,13 @@ pub struct Client {
 /// Once clients subscribe to a channel, they may only perform pub/sub related
 /// commands. The `Client` type is transitioned to a `Subscriber` type in order to
 /// prevent non-pub/sub methods from being called.
-struct Subscriber {
+pub struct Subscriber {
     client: Client,
 
     subscribed_channels: Vec<String>,
 }
 
-#[derive(Deubg, Clone)]
+#[derive(Debug, Clone)]
 pub struct Message {
     pub channel: String,
     pub content: Bytes,
@@ -312,7 +312,7 @@ impl Client {
                     // 当频道名是所订阅频道名并且num-subscribed为当前订阅
                     // 这里能直接比较是因为实现了PartialEq<&str>特征
                     [subscribe, schannel, ..] if *subscribe == "subscribe"  && *schannel == channel => {},
-                    _ => return Err(frame.to_error()),
+                    _ => return Err(response.to_error()),
                 },
                 frame => return Err(frame.to_error())
             };
@@ -361,9 +361,9 @@ impl Subscriber {
                     Frame::Array(ref frame) => match frame.as_slice() {
                         [message, channel, content] if *message == "message" => Ok(Some(Message{
                             channel: channel.to_string(),
-                            content: Bytes::from(content.to_stirng()),
+                            content: Bytes::from(content.to_string()),
                         })),
-                        _ => Err(frame.to_error()),
+                        _ => Err(mframe.to_error()),
                     },
                     frame => Err(frame.to_error()),
                 }

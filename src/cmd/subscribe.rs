@@ -13,7 +13,7 @@ use tokio_stream::{Stream, StreamExt, StreamMap};
 /// other commands, except for additional SUBSCRIBE, PSUBSCRIBE, UNSUBSCRIBE,
 /// PUNSUBSCRIBE, PING and QUIT commands.
 #[derive(Debug)]
-pub struct Subcribe {
+pub struct Subscribe {
     channels: Vec<String>,
 }
 
@@ -32,10 +32,10 @@ pub struct Unsubscribe {
 /// a trait object
 type Messages = Pin<Box<dyn Stream<Item = Bytes> + Send>>;
 
-impl Subcribe {
+impl Subscribe {
     /// Create a new `Subscribe` command to listen on the specified channels.
-    pub(crate) fn new(channels: Vec<String>) -> Subcribe {
-        Subcribe { channels }
+    pub(crate) fn new(channels: Vec<String>) -> Subscribe {
+        Subscribe { channels }
     }
 
     /// Parse a `Subscribe` instance from a received frame.
@@ -58,7 +58,7 @@ impl Subcribe {
     /// ```text
     /// SUBSCRIBE channel [channel ...]
     /// ```
-    pub(crate) fn parse_frames(parse: &mut Parse) -> crate::Result<Subcribe> {
+    pub(crate) fn parse_frames(parse: &mut Parse) -> crate::Result<Subscribe> {
         use ParseError::EndOfStream;
 
         let mut channels = vec![parse.next_string()?];
@@ -71,7 +71,7 @@ impl Subcribe {
             }
         }
 
-        Ok(Subcribe { channels })
+        Ok(Subscribe { channels })
     }
 
     /// Apply the `Subscribe` command to the specified `Db` instance.

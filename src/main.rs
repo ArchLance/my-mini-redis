@@ -1,5 +1,5 @@
 mod frame;
-use mylib::Error;
+use my_mini_redis::Error;
 fn main() {
     let e: frame::Error = "string".into();
     match e {

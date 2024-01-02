@@ -28,7 +28,8 @@ async fn run(mut client: Client, mut rx: Receiver<Message>) {
     while let Some((cmd, tx)) = rx.recv().await {
         let response = match cmd {
             Command::Get(key) => client.get(&key).await,
-            Command::Set(key, value) => client.set(&key, value).await 
+            // client.set返回的是Result<()>，但是由于get返回的是Result<Option<Bytes>>，所以要将()改为None
+            Command::Set(key, value) => client.set(&key, value).await.map(|_| None)
         };
 
         // 将回复发送给调用者
@@ -70,7 +71,7 @@ impl BufferedClient {
         let (tx, rx) = channel(32);
 
         // 创建一个线程来处理对连接的请求
-        tokio::spwan( async move { run(client, rx).await });
+        tokio::spawn( async move { run(client, rx).await });
 
         // 返回句柄
         BufferedClient{ tx }

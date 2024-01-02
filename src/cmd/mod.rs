@@ -11,7 +11,7 @@ mod set;
 pub use set::Set;
 
 mod subscribe;
-pub use subscribe::{Subcribe, Unsubscribe};
+pub use subscribe::{Subscribe, Unsubscribe};
 
 mod unknown;
 pub use unknown::Unknown;
@@ -23,7 +23,7 @@ pub enum Command {
     Get(Get),
     Publish(Publish),
     Set(Set),
-    Subcribe(Subcribe),
+    Subcribe(Subscribe),
     Unsubscribe(Unsubscribe),
     Ping(Ping),
     Unknown(Unknown)
@@ -47,7 +47,7 @@ impl Command {
             "get" => Command::Get(Get::parse_frames(&mut parse)?),
             "publish" => Command::Publish(Publish::parse_frames(&mut parse)?),
             "set" => Command::Set(Set::parse_frames(&mut parse)?),
-            "subscribe" => Command::Subcribe(Subcribe::parse_frames(&mut parse)?),
+            "subscribe" => Command::Subcribe(Subscribe::parse_frames(&mut parse)?),
             "unsubscribe" => Command::Unsubscribe(Unsubscribe::parse_frames(&mut parse)?),
             "ping" => Command::Ping(Ping::parse_frames(&mut parse)?),
             _ => {
