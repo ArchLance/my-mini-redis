@@ -65,7 +65,7 @@ fn set_up_logging() -> Result<(), TryInitError> {
         .with_exporter(opentelemetry_otlp::new_exporter().tonic())
         .with_trace_config(
             sdktrace::config()
-                .with_sampler(sdktrace::Samper::AlwaysOn)
+                .with_sampler(sdktrace::Sampler::AlwaysOn)
                 // 需要将轨迹 ID 转换为 Xray 兼容格式
                 .with_id_generator(sdktrace::XrayIdGenerator::default()),
         )
