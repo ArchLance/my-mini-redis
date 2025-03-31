@@ -29,8 +29,7 @@ pub struct Connection {
 }
 
 impl Connection {
-    /// Create a new `Connection`, backed by `socket`, Read an write buffers
-    /// are initialized
+    /// 创建一个新的Connection，内部有socket，初始化一个读写buffer
     pub fn new(socket: TcpStream) -> Connection {
         Connection {
             stream: BufWriter::new(socket),
@@ -41,17 +40,16 @@ impl Connection {
         }
     }
 
-    /// Read a single `Frame` value from the underlying stream.
+    /// 从底层数据流中读取单个Frame值
     ///
-    /// The function waits until it has retrieved enough data to parse a frame.
-    /// Any data remaining in read buffer after the frame has been parsed is
-    /// kept there for the next call to `read_frame`.
     ///
-    /// # Returns
+    /// 函数会等待，直到获取到足够的数据来解析帧。解析完帧后，
+    /// 读取缓冲区中剩余的任何数据都会被 将保留到下一次调用 `read_frame`时。
     ///
-    /// On success, the received frame is returned. If the `TcpStream`
-    /// is closed in a way that doesn't break a frame in half, it returns
-    /// `None`. Otherwise, an error is returned
+    /// # 返回值
+    ///
+    /// 如果成功，则返回接收到的帧。如果关闭 `TcpStream` 的方式没有将帧分成两半，
+    /// 则返回None
     pub async fn read_frame(&mut self) -> crate::Result<Option<Frame>> {
         loop {
             // 尝试从buffer中解析出一个frame。如果buffer中有足够的数据，返回一个frame
@@ -118,14 +116,12 @@ impl Connection {
         }
     }
 
-    /// Write a single `Frame` value to the underlying stream
+    /// 向底层数据流写入单个`Frame`值
     ///
-    /// The `Frame` value is written to the socket using various `write_*`
-    /// function provided by `AsyncWrite`. Calling these functions directly on
-    /// a `TcpStream` is **not** advised, as this will result in a large number of
-    /// syscalls. However, it is fine to call these function on a *buffered*
-    /// write stream. The data will be written to the buffer. Once the buffer is
-    /// full, it is flushed to the underlying socket.
+    /// `Frame`的值会通过 “AsyncWrite” 提供的各种 “write_*”函数写入套接字。
+    /// 不建议直接在 `TcpStream` 上调用这些函数，因为这会导致大量系统调用。
+    /// 不过，在*缓冲*写入流上调用这些函数则没有问题。数据将被写入缓冲区。
+    /// 一旦缓冲区满后，数据将被刷新到底层套接字。
     pub async fn write_frame(&mut self, frame: &Frame) -> io::Result<()> {
         // Array通过编码其他entry来编码。 其他frame type被认为是字面量。
         // 现在，mini redis还不能编码recursive frame structures。

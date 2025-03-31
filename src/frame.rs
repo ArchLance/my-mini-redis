@@ -3,12 +3,12 @@
 
 use bytes::{Buf, Bytes};
 use std::convert::TryInto;
-use std::fmt::{self, write};
+use std::fmt;
 use std::io::Cursor;
 use std::num::TryFromIntError;
 use std::string::FromUtf8Error;
 
-/// A frame in the Redis protocol
+/// 在Redis协议中的Frame
 #[derive(Clone, Debug)]
 pub enum Frame {
     Simple(String),
@@ -21,24 +21,24 @@ pub enum Frame {
 
 #[derive(Debug)]
 pub enum Error {
-    /// Not enough data is available to parse a message
+    /// 没有足够的数据解析成一个frame
     Incomplete,
 
-    /// Invalid message encoding
+    /// 不规范的编码
     Other(crate::Error),
 }
 
 impl Frame {
-    /// Returns an empty array
+    /// 返回一个空数组
     // pub(crate) 代表本crate内可见
     pub(crate) fn array() -> Frame {
         Frame::Array(vec![])
     }
-    /// Push a "bulk" frame into the array. `self` must be an Array frame.
+    /// 将bulk frame放入数组中，self必须是一个Array frame
     ///
     /// # Panics
     ///
-    /// panics if `self` is not an array
+    /// 如果不是Array frame则抛出异常
     pub(crate) fn push_bulk(&mut self, bytes: Bytes) {
         match self {
             Frame::Array(vec) => {
@@ -57,25 +57,25 @@ impl Frame {
         }
     }
 
-    /// Checks if an entire message can be decoded from `src`
+    /// 判断src是否是一个完整的信息
     pub fn check(src: &mut Cursor<&[u8]>) -> Result<(), Error> {
         match get_u8(src)? {
-            // Simple strings: +OK\r\n
+            // 简单字符串: +OK\r\n
             b'+' => {
                 get_line(src)?;
                 Ok(())
             }
-            // Simple errors: -Error message\r\n
+            // 简单错误: -Error message\r\n
             b'-' => {
                 get_line(src)?;
                 Ok(())
             }
-            // Integers: :[<+|->]<value>\r\n
+            // 整形: :[<+|->]<value>\r\n
             b':' => {
                 let _ = get_decimal(src)?;
                 Ok(())
             }
-            // Bulk strings: $<length>\r\n<data>\r\n
+            // 长字符串: $<length>\r\n<data>\r\n
             b'$' => {
                 if b'-' == peek_u8(src)? {
                     // 跳过'-1\r\n'
@@ -89,7 +89,7 @@ impl Frame {
                     skip(src, len + 2)
                 }
             }
-            // Arrays: *<number-of-elements>\r\n<element-1>...<element-n>
+            // 数组: *<number-of-elements>\r\n<element-1>...<element-n>
             b'*' => {
                 let len = get_decimal(src)?;
 
@@ -169,7 +169,6 @@ impl Frame {
     }
 }
 
-// todo impl PartialEq<&str> for Frame
 impl PartialEq<&str> for Frame {
     fn eq(&self, other: &&str) -> bool {
         match self {

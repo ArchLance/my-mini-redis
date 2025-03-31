@@ -8,9 +8,6 @@ description = """
 """
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[[bin]]
-name = "redis"
-path = "src/main.rs"
 
 [[bin]]
 name = "my-mini-redis-cli"
@@ -45,4 +42,5 @@ opentelemetry-otlp = { version = "0.13.0", optional = true }
 tokio = { version = "1", features = ["test-util"] }
 
 [features]
+default = ["otel"]
 otel = ["dep:opentelemetry", "dep:tracing-opentelemetry", "dep:opentelemetry-aws", "dep:opentelemetry-otlp"]

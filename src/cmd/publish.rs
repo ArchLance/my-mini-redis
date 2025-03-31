@@ -1,61 +1,55 @@
 use crate::{Connection, Db, Frame, Parse};
 use bytes::Bytes;
 
-/// Posts a message to the given channel.
-/// 
-/// Send a message into a channel without any knowledge of individual comsumers
-/// Consumers may subscribe to channels in order to receive the messages.
-/// 
-/// Channel names have no relation to the key-value namespace. Publishing on a
-/// channel named "foo" has no relation to setting the "foo" key.
+/// 向指定channel中发送一条信息
+///
+/// 向频道发送信息，而无需了解每个消费者的情况 消费者可以订阅频道，以便接收信息。
+///
+///  通道名称与key-value的map无关。在名为 “foo”的频道上发布与设置 “foo” 键没有任何关系。
 #[derive(Debug)]
 pub struct Publish {
-    /// Name of the channel on which the message should be published.
+    /// 应发布信息的频道名称。
     channel: String,
 
-    /// The message to publish.
+    /// 要发布的信息。
     message: Bytes,
 }
 
 impl Publish {
-    /// Create a new `Publish` command which sends `message` on `channel`.
+    /// 创建一个新的在 `channel` 上发送 `message`的 `Publish` 命令。
     pub(crate) fn new(channel: impl ToString, message: Bytes) -> Publish {
         Publish {
             channel: channel.to_string(),
             message,
         }
     }
-    /// Parse a `Publish` instance from a received frame.
+    /// 将收到的frame解析为一个Publish实例
     ///
-    /// The `Parse` argument provides a cursor-like API to read fields from the
-    /// `Frame`. At this point, the entire frame has already been received from
-    /// the socket.
+    /// Parse参数提供了一个类似于游标的 API，用于从`Frame`中读取字段。
+    /// 此时，整个帧已经从socket中收到。
     ///
-    /// The `PUBLISH` string has already been consumed.
+    ///  `publish`字符串已经被消费了
     ///
     /// # Returns
     ///
-    /// On success, the `Publish` value is returned. If the frame is malformed,
-    /// `Err` is returned.
+    /// 成功返回Publish实例，不完整则返回Err
     ///
     /// # Format
     ///
-    /// Expects an array frame containing three entries.
+    /// 数组frame应该包含3个entries
     ///
     /// ```text
-    /// PUBLISH channel message
-    /// ``` 
+    /// publish channel message
+    /// ```
     pub(crate) fn parse_frames(parse: &mut Parse) -> crate::Result<Publish> {
-        
         let channel = parse.next_string()?;
         let message = parse.next_bytes()?;
 
-        Ok(Publish {channel, message})
+        Ok(Publish { channel, message })
     }
-    /// Apply the `Publish` command to the specified `Db` instance.
+    /// 应用Ping命令并返回信息
     ///
-    /// The response is written to `dst`. This is called by the server in order
-    /// to execute a received command.
+    /// 回复被写回dst，这个函数被server调用，目的是为了执行收到的命令
     pub(crate) async fn apply(self, db: &Db, dst: &mut Connection) -> crate::Result<()> {
         let num_subscribers = db.publish(&self.channel, self.message);
 
@@ -64,11 +58,10 @@ impl Publish {
         dst.write_frame(&response).await?;
 
         Ok(())
-    } 
-    /// Converts the command into an equivalent `Frame`.
+    }
+    /// 将命令转换为对等的Frame
     ///
-    /// This is called by the client when encoding a `Publish` command to send
-    /// to the server.
+    /// 当需要把Publish命令发送给server时，这个函数被client调用
     pub(crate) fn into_frame(self) -> Frame {
         let mut frame = Frame::array();
         frame.push_bulk(Bytes::from("publish".as_bytes()));

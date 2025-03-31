@@ -1,25 +1,24 @@
 use tokio::sync::broadcast;
 
-/// Listen for the server shutdown signal.
+/// 监听服务器关闭信号
 ///
-/// Shutdown is signalled using a `broadcast::Receiver`. Only a single value is
-/// ever sent. Once a value has been sent via the broadcast channel, the server
-/// should shutdown.
 ///
-/// The `Shutdown` struct listens for the signal and tracks that the signal has
-/// been received. Callers may query for whether the shutdown signal has been
-/// received or not.
+/// 关机信号使用 `broadcast::Receiver`。只发送一个值。
+/// 一旦通过广播通道发送了一个值，服务器应该关闭。
+///
+/// The `Shutdown` 结构监听信号，并跟踪信号是否已收到。
+/// 调用者可以查询是否已收到关闭信号。
 #[derive(Debug)]
 pub(crate) struct Shutdown {
-    /// `true` if the shutdown signal has been received
+    /// `true` 如果关闭信号已经被收到
     is_shutdown: bool,
 
-    /// The receive half of the channel used to listen for shutdown
+    /// 用于监听关机的接收半信道。
     notify: broadcast::Receiver<()>,
 }
 
 impl Shutdown {
-    /// Create a new `Shutdown` backed by the given `broadcast::Receiver`.
+    /// 使用所传入的`broadcast::Receiver`创建一个新的 `Shutdown` 对象
     pub(crate) fn new(notify: broadcast::Receiver<()>) -> Shutdown {
         Shutdown {
             is_shutdown: false,
@@ -27,20 +26,22 @@ impl Shutdown {
         }
     }
 
+    /// 返回 `true` 如果关闭信号被接收
     pub(crate) fn is_shutdown(&self) -> bool {
         self.is_shutdown
     }
 
+    /// 接收关闭信号，如果有必要等待的话
     pub(crate) async fn recv(&mut self) {
-        // 如果关闭信号已经收到，则直接返回
+        // 如果关闭信号已经被接收，直接返回
         if self.is_shutdown {
             return;
         }
-        // 无法接收 "滞后错误"，因为只发送一个值。
-        // Cannot receive a "lag error" as only one value is ever sent.
-        // 详情见https://docs.rs/tokio/latest/tokio/sync/broadcast/index.html#lagging
+
+        // 无法接收lag error因为只发送一个值
         let _ = self.notify.recv().await;
 
+        // 记录关闭信号被接收
         self.is_shutdown = true;
     }
 }

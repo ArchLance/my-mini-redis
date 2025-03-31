@@ -2,42 +2,38 @@ use crate::{Connection, Frame, Parse, ParseError};
 use bytes::Bytes;
 use tracing::{debug, instrument};
 
-/// Returns PONG if no argument is provided, otherwise
-/// return a copy of the argument as a bulk.
-/// 
-/// This command is often used to test if a connection
-/// is still alive, or to measure latency
+/// 如果没有提供参数，则返回 PONG，否则返回参数bulk类型的副本
+///
+/// 该命令通常用于测试连接是否仍然有效，或测量延迟
 #[derive(Debug, Default)]
 pub struct Ping {
-    /// optional message to be returned
+    /// 一个可选的msg被返回
     msg: Option<Bytes>,
 }
 
 impl Ping {
-    /// Create a new `Ping` command with optional `msg`.
+    /// 创建一个带有optional msg的Ping command
     pub fn new(msg: Option<Bytes>) -> Ping {
         Ping { msg }
     }
 
-    /// Parse a `Ping` instance from a received frame.
+    /// 从接收到的frame解析出Ping实例
     ///
-    /// The `Parse` argument provides a cursor-like API to read fields from the
-    /// `Frame`. At this point, the entire frame has already been received from
-    /// the socket.
+    /// Parse参数提供了一个类似于游标的 API，用于从`Frame`中读取字段。
+    /// 此时，整个帧已经从socket中收到。
     ///
-    /// The `PING` string has already been consumed.
+    /// "ping" 字符串已经被消费了
     ///
     /// # Returns
     ///
-    /// Returns the `Ping` value on success. If the frame is malformed, `Err` is
-    /// returned.
+    /// 成功则返回`ping`的值，如果frame不完整返回Err
     ///
     /// # Format
     ///
-    /// Expects an array frame containing `PING` and an optional message.
+    /// 希望一个数组Frame包含ping和optional msg
     ///
     /// ```text
-    /// PING [message]
+    /// ping [message]
     /// ```
     pub(crate) fn parse_frames(parse: &mut Parse) -> crate::Result<Ping> {
         match parse.next_bytes() {
@@ -47,27 +43,26 @@ impl Ping {
         }
     }
 
-    /// Apply the `Ping` command and return the message.
-    /// 
-    /// The response is written to `dst`. This is called by the server in order
-    /// to execute a received command.
+    /// 应用Ping命令并返回信息
+    ///
+    /// 回复被写回dst，这个函数被server调用，目的是为了执行收到的命令
     #[instrument(skip(self, dst))]
     pub(crate) async fn apply(self, dst: &mut Connection) -> crate::Result<()> {
         let response = match self.msg {
             None => Frame::Simple("PONG".to_string()),
             Some(msg) => Frame::Bulk(msg),
         };
-        
+
         debug!(?response);
 
         dst.write_frame(&response).await?;
 
         Ok(())
     }
-    /// Converts the command into an equivalent `Frame`.
+
+    /// 将命令转换为对等的Frame
     ///
-    /// This is called by the client when encoding a `Ping` command to send
-    /// to the server.
+    /// 当需要把Ping命令发送给server时，这个函数被client调用
     pub(crate) fn into_frame(self) -> Frame {
         let mut frame = Frame::array();
         frame.push_bulk(Bytes::from("ping".as_bytes()));

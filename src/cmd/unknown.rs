@@ -2,7 +2,7 @@ use crate::{Connection, Frame};
 
 use tracing::{debug, instrument};
 
-/// Represents an "unknown" command. This is not a real `Redis` command.
+/// 代表一个未知命令，这个不是一个真正的Redis命令
 #[derive(Debug)]
 pub struct Unknown {
     command_name: String,
@@ -11,7 +11,7 @@ pub struct Unknown {
 impl Unknown {
     pub(crate) fn new(key: impl ToString) -> Unknown {
         Unknown {
-            command_name: key.to_string()
+            command_name: key.to_string(),
         }
     }
 

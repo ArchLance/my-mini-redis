@@ -1,6 +1,4 @@
-use my_mini_redis::clients;
 use my_mini_redis::{clients::Client, server};
-use tracing::subscriber;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
@@ -43,10 +41,13 @@ async fn receive_message_multiple_subscribed_channels() {
     let (addr, _) = start_server().await;
 
     let client = Client::connect(addr).await.unwrap();
-    let mut subscriber = client.subscribe(vec!["hello".into(),"world".into()]).await.unwrap();
+    let mut subscriber = client
+        .subscribe(vec!["hello".into(), "world".into()])
+        .await
+        .unwrap();
 
     tokio::spawn(async move {
-        let mut  client = Client::connect(addr).await.unwrap();
+        let mut client = Client::connect(addr).await.unwrap();
         client.publish("hello", "world".into()).await.unwrap();
     });
 
@@ -65,18 +66,20 @@ async fn receive_message_multiple_subscribed_channels() {
 }
 
 /// test that a client accurately removes its own subscribed channel list
-/// when unsubscribing to all subscribed channels by submitting an empty vec
+/// when unsubscribing to all sub
+/// scribed channels by submitting an empty vec
 #[tokio::test]
 async fn unsubscribes_from_channels() {
     let (addr, _) = start_server().await;
 
     let client = Client::connect(addr).await.unwrap();
-    let mut subscriber = client.subscribe(vec!["hello".into(), "world".into()])
-    .await.unwrap();
+    let mut subscriber = client
+        .subscribe(vec!["hello".into(), "world".into()])
+        .await
+        .unwrap();
     subscriber.unsubscribe(&[]).await.unwrap();
     assert_eq!(subscriber.get_subscribed().len(), 0);
 }
-
 
 async fn start_server() -> (SocketAddr, JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

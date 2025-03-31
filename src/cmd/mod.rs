@@ -16,7 +16,7 @@ pub use subscribe::{Subscribe, Unsubscribe};
 mod unknown;
 pub use unknown::Unknown;
 
-use crate::{Connection, Db, Frame, Parse, ParseError, Shutdown};
+use crate::{Connection, Db, Frame, Parse, Shutdown};
 
 #[derive(Debug)]
 pub enum Command {
@@ -26,19 +26,18 @@ pub enum Command {
     Subcribe(Subscribe),
     Unsubscribe(Unsubscribe),
     Ping(Ping),
-    Unknown(Unknown)
+    Unknown(Unknown),
 }
 
 impl Command {
-    /// Parse a command from a received frame.
-    /// 
-    /// The `Frame` must be represent a Redis command supported by mini redis
-    /// and be the array variant.
-    /// 
-    /// # Returns
-    /// 
-    /// On sucess, the command value is returned , otherwise `Err` is returned
-    pub fn from_frame(frame:Frame) -> crate::Result<Command> {
+    /// 从接收到的帧中解析命令。
+    ///
+    /// `Frame` 必须代表一个mini redis支持的redis命令，且必须是数组变量
+    ///
+    /// # 返回值
+    ///
+    /// 成功command值被返回，失败则返回错误
+    pub fn from_frame(frame: Frame) -> crate::Result<Command> {
         let mut parse = Parse::new(frame)?;
 
         let command_name = parse.next_string()?.to_lowercase();
@@ -56,19 +55,19 @@ impl Command {
         };
 
         parse.finish()?;
-        
+
         Ok(command)
     }
 
-    /// Apple command to specified `Db` instance.
-    /// 
-    /// The response is written to `dst`. This is called by the server in 
-    /// order to execute a received command
+    /// 将相应命令应用到指定Db实例
+    ///
+    ///
+    /// 响应被写入 `dst`。服务器会调用该函数来执行收到的命令
     pub(crate) async fn apply(
         self,
         db: &Db,
         dst: &mut Connection,
-        shutdown: &mut Shutdown
+        shutdown: &mut Shutdown,
     ) -> crate::Result<()> {
         use Command::*;
 
@@ -79,8 +78,7 @@ impl Command {
             Subcribe(cmd) => cmd.apply(db, dst, shutdown).await,
             Ping(cmd) => cmd.apply(dst).await,
             Unknown(cmd) => cmd.apply(dst).await,
-            // `Unsubscribe` 无法被执行，它只能在`Subscribe`指令
-            // 执行时，被收到
+            // `Unsubscribe` 无法被执行，它只能在`Subscribe`指令执行时，被收到
             Unsubscribe(_) => Err("`Unsubscribe` is unsupported in this context.".into()),
         }
     }

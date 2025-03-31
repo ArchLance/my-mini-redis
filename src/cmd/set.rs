@@ -1,21 +1,21 @@
-use crate::{Parse, ParseError, Connection, Db, Frame};
+use crate::{Connection, Db, Frame, Parse, ParseError};
 
 use bytes::Bytes;
 use std::time::Duration;
 use tracing::{debug, instrument};
 
-/// Set `key` to hold the string `value`.
-/// 
-/// If `key` already holds a value, it is overwritten, regardless of its type.
-/// Any previous time to live associated with the key is discarded on successful
-/// SET operation.
-/// 
+/// 设置key-value对
+///
+/// 如果key已经存在一个对应的value，将会被覆盖，不管其类型
+/// 成功执行 SET 操作后，以前与密钥相关的任何存活时间都将被丢弃。
+/// SET 操作时，与密钥相关的任何先前的存活时间都将被丢弃。
+///
 /// # Options
-/// 
-/// Currently, the following options are supported:
-/// 
-/// * EX `seconds` -- Set the specified expire time, in seconds.
-/// * PX `milliseconds` -- Set the specified expire time, in milliseconds.
+///
+/// 支持两个选项：
+///
+/// * EX `seconds` -- 用秒设置过期时间
+/// * PX `milliseconds` --  用毫秒设置过期时间
 #[derive(Debug)]
 pub struct Set {
     key: String,
@@ -26,45 +26,42 @@ pub struct Set {
 }
 
 impl Set {
-    /// Create a new `Set` command which sets `key` to `value`.
-    /// 
-    /// If `expire` is `Some`, the value should expire after the specified
-    /// duration
+    /// 创建一个新的Set命令，将key的值设置为value
+    ///
+    /// 如果expire是Some类型，value应该在指定duration后过期
     pub fn new(key: impl ToString, value: Bytes, expire: Option<Duration>) -> Set {
         Set {
             key: key.to_string(),
             value,
-            expire
+            expire,
         }
     }
-    /// Get the key
+    /// 获得key
     pub fn key(&self) -> &str {
         &self.key
     }
-    /// Get the value
+    /// 获得值
     pub fn value(&self) -> &Bytes {
         &self.value
     }
-    /// Get the expire
+    /// 获得过期时间
     pub fn expire(&self) -> Option<Duration> {
         self.expire
     }
-    /// Parse a `Set` instance from a received frame.
+    /// 从一个收到的frame中解析出Set实例
     ///
-    /// The `Parse` argument provides a cursor-like API to read fields from the
-    /// `Frame`. At this point, the entire frame has already been received from
-    /// the socket.
+    /// Parse参数提供了一个类似于游标的 API，用于从`Frame`中读取字段。
+    /// 此时，整个帧已经从socket 收到。
     ///
-    /// The `SET` string has already been consumed.
+    /// "set"字符串已经被消费
     ///
     /// # Returns
     ///
-    /// Returns the `Set` value on success. If the frame is malformed, `Err` is
-    /// returned.
+    /// 成功返回Set实例，如果不完整返回Err
     ///
     /// # Format
     ///
-    /// Expects an array frame containing at least 3 entries.
+    /// 希望数组Frame包含至少三个entries
     ///
     /// ```text
     /// SET key value [EX seconds|PX milliseconds]
@@ -82,24 +79,22 @@ impl Set {
             Ok(s) if s.to_uppercase() == "EX" => {
                 let secs = parse.next_int()?;
                 expire = Some(Duration::from_secs(secs));
-            },
+            }
             Ok(s) if s.to_uppercase() == "PX" => {
                 let ms = parse.next_int()?;
                 expire = Some(Duration::from_millis(ms));
-            },
+            }
             Ok(_) => return Err("currently `SET` only supports the expiration option".into()),
-            Err(EndOfStream) => {},
+            Err(EndOfStream) => {}
             Err(err) => return Err(err.into()),
         }
 
-        Ok(Set { key, value, expire})
-
+        Ok(Set { key, value, expire })
     }
 
-    /// Apply the `Set` command to the specified `Db` instance.
-    /// 
-    /// The response is written to `dst`. This is called by the server in order
-    /// to execute a received command.
+    /// 应用Set命令到指定的Db实例
+    ///
+    /// 回复被写回dst，这个函数被server调用，目的是为了执行收到的命令
     #[instrument(skip(self, db, dst))]
     pub(crate) async fn apply(self, db: &Db, dst: &mut Connection) -> crate::Result<()> {
         db.set(self.key, self.value, self.expire);
@@ -110,10 +105,9 @@ impl Set {
 
         Ok(())
     }
-    /// Converts the command into an equivalent `Frame`.
+    /// 将命令转换为对等的Frame
     ///
-    /// This is called by the client when encoding a `Set` command to send to
-    /// the server.
+    /// 当需要把Set命令发送给server时，这个函数被client调用
     pub(crate) fn into_frame(self) -> Frame {
         let mut frame = Frame::array();
         frame.push_bulk(Bytes::from("set".as_bytes()));

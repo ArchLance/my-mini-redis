@@ -10,7 +10,7 @@ pub use frame::Frame;
 pub mod connection;
 pub use connection::Connection;
 
-pub mod shutdown;
+pub mod shutdown;   
 use shutdown::Shutdown;
 
 pub mod parse;

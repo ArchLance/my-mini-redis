@@ -2,7 +2,6 @@
 //!  
 //! Provides an async connect and methods for issuing the supported commands.
 
-
 use crate::cmd::{Get, Ping, Publish, Set, Subscribe, Unsubscribe};
 use crate::{Connection, Frame};
 
@@ -15,16 +14,16 @@ use tokio_stream::Stream;
 use tracing::{debug, instrument};
 
 /// Established connection with a Redis server.
-/// 
+///
 /// Backed by a single `TcpStream`, `Client` provides basic network client
 /// functionality (no pooling, retrying, ...). Connections are established using
 /// the [`connect`](fn@connect) function.
-/// 
+///
 /// Requests are issued using the various methods of `Client`.
 pub struct Client {
     /// The TCP connection decorated with the redis protocol encoder / decoder
     /// implemented using a buffered `TcpStream`.
-    /// 
+    ///
     /// When `Listener` receives an inbound connection, the `TcpStream` is
     /// passed to `Connection::new`, which initializes the associated buffers
     /// `Connection` allows the handler to operate at the "frame" level and keep
@@ -33,7 +32,7 @@ pub struct Client {
 }
 
 /// A client that has entered pub/sub mode
-/// 
+///
 /// Once clients subscribe to a channel, they may only perform pub/sub related
 /// commands. The `Client` type is transitioned to a `Subscriber` type in order to
 /// prevent non-pub/sub methods from being called.
@@ -51,16 +50,16 @@ pub struct Message {
 
 impl Client {
     /// Establish a connection with the Redis server located at `addr`.
-    /// 
-    /// `addr` may be any type that can be asynchronously converted to a 
+    ///
+    /// `addr` may be any type that can be asynchronously converted to a
     /// `SocketAddr`. This includes `SocketAddr` and strings. The `ToSokcetAddrs`
     /// trait is the Tokio version and not the `std` version.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```no_run
     /// use mini_redis::clients::Client;
-    /// 
+    ///
     /// #[tokio::main]
     /// async fn main() {
     ///     let client = match Client::connect("localhost:6379").await {
@@ -83,19 +82,19 @@ impl Client {
     }
 
     /// Ping to the server.
-    /// 
+    ///
     /// Returns PONG if no argument is provided, otherwise
     /// return a copy of the argument as a bulk.
-    /// 
+    ///
     /// This command is often used to test if a connection
     /// is still alive, or to measure latency.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// Demonstrates basic usage
     /// ```no_run
     /// use mini_redis::clients::Client;
-    /// 
+    ///
     /// #[tokio::main]
     /// async fn main() {
     ///     let mut client = Client::connect("localhost:6379").await.unwrap();
@@ -113,21 +112,21 @@ impl Client {
         match self.read_response().await? {
             Frame::Simple(value) => Ok(value.into()),
             Frame::Bulk(value) => Ok(value),
-            frame => Err(frame.to_error())
+            frame => Err(frame.to_error()),
         }
     }
 
     /// Get the value of key
-    /// 
+    ///
     /// If the key does not exist the special value `None` is returned.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// Demonstrates basic usage.
-    /// 
+    ///
     /// ```no_run
     /// use my_mini_redis::clients::Client;
-    /// 
+    ///
     /// #[tokio::main]
     /// async fn main() {
     ///     let mut client = Client::connect("localhost:6379").await.unwrap();
@@ -153,25 +152,25 @@ impl Client {
     }
 
     /// Set `key` to hold the given `value`.
-    /// 
+    ///
     /// The `value` is associated with `key` until it is overwritten by the next
     /// call to `set` or it is removed.
-    /// 
+    ///
     /// If key already holds a value, it is overwritten. Any previous time to live
     /// associated with the key is discarded on successful SET operation.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// Demonstrates basic usage.
-    /// 
+    ///
     /// ```no_run
     /// use my_mini_redis::clients::Client;
-    /// 
+    ///
     /// #[tokio::main]
     /// async fn main() {
     ///     let mut client = Client::connect("localhost:6379").await.unwrap();
     ///     client.set("foo", "bar".into()).await.unwrap();
-    /// 
+    ///
     ///     // Getting the value immediately works
     ///     let val = client.get("foo").await.unwrap().unwrap();
     ///     assert_eq!(val, "bar");
@@ -220,7 +219,12 @@ impl Client {
     ///     assert!(val.is_some());
     /// }
     /// ```
-    pub async fn set_expires(&mut self, key: &str, value: Bytes, expiration: Duration) -> crate::Result<()> {
+    pub async fn set_expires(
+        &mut self,
+        key: &str,
+        value: Bytes,
+        expiration: Duration,
+    ) -> crate::Result<()> {
         self.set_cmd(Set::new(key, value, Some(expiration))).await
     }
 
@@ -233,7 +237,7 @@ impl Client {
 
         match self.read_response().await? {
             Frame::Simple(response) if response == "OK" => Ok(()),
-            frame => Err(frame.to_error())
+            frame => Err(frame.to_error()),
         }
     }
 
@@ -311,18 +315,19 @@ impl Client {
                     //
                     // 当频道名是所订阅频道名并且num-subscribed为当前订阅
                     // 这里能直接比较是因为实现了PartialEq<&str>特征
-                    [subscribe, schannel, ..] if *subscribe == "subscribe"  && *schannel == channel => {},
+                    [subscribe, schannel, ..]
+                        if *subscribe == "subscribe" && *schannel == channel => {}
                     _ => return Err(response.to_error()),
                 },
-                frame => return Err(frame.to_error())
+                frame => return Err(frame.to_error()),
             };
         }
 
         Ok(())
     }
-    /// Read a response frame from the socket.
-    /// 
-    /// If an `Error` frame is receive, it is converted to `Err`
+    /// 从socket中读取回复Frame
+    ///
+    /// 如果有一个Error Frame则转换成Err
     async fn read_response(&mut self) -> crate::Result<Frame> {
         let response = self.connection.read_frame().await?;
 
@@ -350,7 +355,7 @@ impl Subscriber {
 
     /// Receive the next message published on a subscribed channel, waiting if
     /// necessary.
-    /// 
+    ///
     /// `None` indicates the subscription has been terminated.
     pub async fn next_message(&mut self) -> crate::Result<Option<Message>> {
         match self.client.connection.read_frame().await? {
@@ -359,7 +364,7 @@ impl Subscriber {
 
                 match mframe {
                     Frame::Array(ref frame) => match frame.as_slice() {
-                        [message, channel, content] if *message == "message" => Ok(Some(Message{
+                        [message, channel, content] if *message == "message" => Ok(Some(Message {
                             channel: channel.to_string(),
                             content: Bytes::from(content.to_string()),
                         })),
@@ -368,7 +373,7 @@ impl Subscriber {
                     frame => Err(frame.to_error()),
                 }
             }
-            None => Ok(None)
+            None => Ok(None),
         }
     }
 
@@ -377,12 +382,13 @@ impl Subscriber {
     /// 将订阅者转换为 "流"，在订阅频道上发布新消息
     /// `Subscriber` does not implement stream itself as doing so with safe code
     /// is non trivial. The usage of async/await would require a manual Stream
-    /// implementation to use `unsafe` code. Instead, a conversion function is 
-    /// provided and the returned stream is implemented with the help of the 
+    /// implementation to use `unsafe` code. Instead, a conversion function is
+    /// provided and the returned stream is implemented with the help of the
     /// `async-stream` crate.
     /// 订阅者 "本身并不实现流，因为使用安全代码实现流并非易事。如果使用 async/await，
     /// 则需要手动实现流以使用`不安全`代码。取而代之的是提供一个转换函数，
     /// 并在 `async-stream` crate 的帮助下实现返回的流。
+    #[warn(dead_code)]
     fn into_stream(mut self) -> impl Stream<Item = crate::Result<Message>> {
         // 使用`async-stream`包中的`try_stream`宏。在Rust中
         // 生成器并不稳定。该板块使用宏来模拟 async/await 上的生成器。
@@ -400,8 +406,9 @@ impl Subscriber {
         self.client.subscribe_cmd(channels).await?;
         // channels.iter().map(Clone::clone) 创建了一个新的迭代器，
         // 这个迭代器在每次迭代时都会返回 channels 中元素的一个克隆。
-        self.subscribed_channels.extend(channels.iter().map(Clone::clone));
-        
+        self.subscribed_channels
+            .extend(channels.iter().map(Clone::clone));
+
         Ok(())
     }
 
@@ -427,7 +434,7 @@ impl Subscriber {
             match response {
                 Frame::Array(ref frame) => match frame.as_slice() {
                     [unsubscribe, channel, ..] if *unsubscribe == "unsubscribe" => {
-                        let len =  self.subscribed_channels.len();
+                        let len = self.subscribed_channels.len();
 
                         if len == 0 {
                             return Err(response.to_error());
